@@ -2,9 +2,9 @@
 namespace Sowork\GraphQL\Model\EagerLoading;
 
 use Phalcon\Di;
-use Phalcon\Mvc\ModelInterface;
 use Phalcon\Mvc\Model\Relation;
 use Phalcon\Mvc\Model\Resultset\Simple;
+use Phalcon\Mvc\ModelInterface;
 
 final class Loader
 {
@@ -18,8 +18,14 @@ MSG;
     protected $subjectClassName;
     /** @var array */
     protected $eagerLoads;
+    /** @var array */
+    protected $eagerRelations = [];
+    /** @var array */
+    protected $oldEagerRelations = [];
     /** @var boolean */
     protected $mustReturnAModel;
+    /** @var array */
+    protected $resolvedRelations;
 
     /**
      * @param ModelInterface|ModelInterface[]|Simple $from
@@ -122,10 +128,10 @@ MSG;
 
     /**
      * Create and get from a Model
-     *
      * @param ModelInterface $subject
-     * @param mixed ...$arguments
+     * @param mixed          ...$arguments
      * @return ModelInterface
+     * @throws \ReflectionException
      */
     public static function fromModel(ModelInterface $subject)
     {
@@ -137,10 +143,10 @@ MSG;
 
     /**
      * Create and get from an array
-     *
      * @param ModelInterface[] $subject
-     * @param mixed ...$arguments
+     * @param mixed            ...$arguments
      * @return array
+     * @throws \ReflectionException
      */
     public static function fromArray(array $subject)
     {
@@ -194,7 +200,7 @@ MSG;
      * @throws \InvalidArgumentException
      * @return array
      */
-    private static function parseArguments(array $arguments)
+    public static function parseArguments(array $arguments)
     {
         if (empty($arguments)) {
             throw new \InvalidArgumentException('Arguments can not be empty');
@@ -202,7 +208,7 @@ MSG;
 
         $relations = [];
 
-        if (count($arguments) === 1 && isset($arguments[0]) && is_array($arguments[0])) {
+        if (count($arguments) === 1 && !empty($arguments[0]) && is_array($arguments[0])) {
             foreach ($arguments[0] as $relationAlias => $queryConstraints) {
                 if (is_string($relationAlias)) {
                     $relations[$relationAlias] = is_callable($queryConstraints) ? $queryConstraints : null;
@@ -221,7 +227,7 @@ MSG;
         }
 
         if (empty($relations)) {
-            throw new \InvalidArgumentException;
+            return [];
         }
 
         return $relations;
@@ -253,23 +259,25 @@ MSG;
         return $this;
     }
 
-    /**
-     * Resolves the relations
-     *
-     * @throws \RuntimeException
-     * @return EagerLoad[]
-     */
-    private function buildTree()
+    public function buildLoad($eagerDatas, $isNestedLoader = false, $nestedLevel = 0)
     {
-        uksort($this->eagerLoads, 'strcmp');
+        $this->oldEagerRelations = $this->eagerRelations;
+        uksort($eagerDatas, 'strcmp');
 
         $di = DI::getDefault();
         $mM = $di['modelsManager'];
 
-        $eagerLoads = $resolvedRelations = [];
-
-        foreach ($this->eagerLoads as $relationAliases => $queryConstraints) {
-            $nestingLevel    = 0;
+        /**
+         * $eagerDatas
+         * Array
+        (
+        [blogs] =>
+        [users] =>
+        [users.comments] =>
+        )
+         */
+        foreach ($eagerDatas as $relationAliases => $queryConstraints) {
+            $nestingLevel    = $isNestedLoader ? $nestedLevel : 0;
             $relationAliases = explode('.', $relationAliases);
             $nestingLevels   = count($relationAliases);
 
@@ -277,34 +285,32 @@ MSG;
                 do {
                     $alias = $relationAliases[$nestingLevel];
                     $name  = join('.', array_slice($relationAliases, 0, $nestingLevel + 1));
-                } while (isset($eagerLoads[$name]) && ++$nestingLevel);
+                } while (isset($this->eagerRelations[$name]) && ++$nestingLevel);
 
-                if ($nestingLevel === 0) {
+                if ($nestingLevel === 0 && !$isNestedLoader) {
                     $parentClassName = $this->subjectClassName;
                 } else {
-                    $parentName = join('.', array_slice($relationAliases, 0, $nestingLevel));
-                    $parentClassName = $resolvedRelations[$parentName]->getReferencedModel();
-
-                    if ($parentClassName[0] === '\\') {
-                        ltrim($parentClassName, '\\');
+                    try {
+                        $parentName = join('.', array_slice($relationAliases, 0, $nestingLevel));
+                        $parentClassName = $this->resolvedRelations[$parentName]->getReferencedModel();
+                        if ($parentClassName[0] === '\\') {
+                            ltrim($parentClassName, '\\');
+                        }
+                    } catch(\Throwable $e) {
+                        echo $e->getMessage();
                     }
                 }
 
-                if (!isset($resolvedRelations[$name])) {
+                if (!isset($this->resolvedRelations[$name])) {
+                    // load model
                     $mM->load($parentClassName);
                     $relation = $mM->getRelationByAlias($parentClassName, $alias);
-
                     if (!$relation instanceof Relation) {
-                        throw new \RuntimeException(sprintf(
-                            'There is no defined relation for the model `%s` using alias `%s`',
-                            $parentClassName,
-                            $alias
-                        ));
+                        throw new \RuntimeException(sprintf('There is no defined relation for the model `%s` using alias `%s`', $parentClassName, $alias));
                     }
-
-                    $resolvedRelations[$name] = $relation;
+                    $this->resolvedRelations[$name] = $relation;
                 } else {
-                    $relation = $resolvedRelations[$name];
+                    $relation = $this->resolvedRelations[$name];
                 }
 
                 $relType = $relation->getType();
@@ -320,15 +326,27 @@ MSG;
                     is_array($relation->getReferencedFields())) {
                     throw new \RuntimeException('Relations with composite keys are not supported');
                 }
-
-                $parent      = $nestingLevel > 0 ? $eagerLoads[$parentName] : $this;
+                $parent = $nestingLevel > 0 ? $this->eagerRelations[$parentName] : $this;
                 $constraints = $nestingLevel + 1 === $nestingLevels ? $queryConstraints : null;
-
-                $eagerLoads[$name] = new EagerLoad($relation, $constraints, $parent);
+                $this->eagerRelations[$name] = new EagerLoad($relation, $constraints, $parent, $name, $this);
             } while (++$nestingLevel < $nestingLevels);
         }
+//        var_dump(array_keys($this->eagerRelations));
+//        var_dump(array_keys($this->oldEagerRelations));
+//
+//        var_dump(array_keys(array_diff_key($this->eagerRelations, $this->oldEagerRelations)));
+        return array_diff_key($this->eagerRelations, $this->oldEagerRelations);
+    }
 
-        return $eagerLoads;
+    /**
+     * Resolves the relations
+     *
+     * @throws \RuntimeException
+     * @return EagerLoad[]
+     */
+    private function buildTree()
+    {
+        return $this->buildLoad($this->eagerLoads);
     }
 
     /**

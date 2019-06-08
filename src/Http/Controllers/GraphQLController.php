@@ -66,7 +66,6 @@ class GraphQLController extends Controller
             'schema'  => $schema,
         ];
 
-        // ====================================================
         foreach ($batch as $batchItem) {
             $query = $batchItem['query'];
             $params = $batchItem[$paramsKey] ?? null;
@@ -90,6 +89,8 @@ class GraphQLController extends Controller
 //            echo "结束时间: ", $profile->getFinalTime(), "\n";
 //            echo "消耗时间: ", $profile->getTotalElapsedSeconds(), "\n";
         }
+
+        // ====================================================
 
         return $body['query'] ? json_encode($completedQueries, true) : json_encode($completedQueries[0], true);
 

@@ -20,13 +20,18 @@ final class EagerLoad
     private $subject;
     /** @var boolean */
     private static $isPhalcon2;
+    /** @var EagerLoad[] */
+    private $delayLoads;
+    private $aliasName;
+    private $loader;
 
     /**
-     * @param Relation $relation
-     * @param null|callable $constraints
+     * @param Relation         $relation
+     * @param null|callable    $constraints
      * @param Loader|EagerLoad $parent
+     * @param                  $aliasName
      */
-    public function __construct(Relation $relation, $constraints, $parent)
+    public function __construct(Relation $relation, $constraints, $parent, $aliasName, $loader)
     {
         if (static::$isPhalcon2 === null) {
             static::$isPhalcon2 = version_compare(Version::get(), '2.0.0') >= 0;
@@ -35,6 +40,8 @@ final class EagerLoad
         $this->relation    = $relation;
         $this->constraints = is_callable($constraints) ? $constraints : null;
         $this->parent      = $parent;
+        $this->loader = $loader;
+        $this->aliasName = $aliasName;
     }
 
     /**
@@ -93,6 +100,7 @@ final class EagerLoad
         $builder = new QueryBuilder;
         $builder->from($relReferencedModel);
 
+        // many-to-many
         if ($isThrough = $relation->isThrough()) {
             if ($subjectSize === 1) {
                 // The query is for a single model
@@ -138,6 +146,7 @@ final class EagerLoad
             $builder->inWhere("[{$relReferencedField}]", $bindValues);
         }
 
+        $builder->setCurrentEagerLoad($this, $this->aliasName, $this->loader);
         if ($this->constraints) {
             call_user_func($this->constraints, $builder);
         }
@@ -238,7 +247,17 @@ final class EagerLoad
         }
 
         $this->subject = $records;
+        if ($this->delayLoads) {
+            foreach ($this->delayLoads as $delayLoad) {
+                $delayLoad->load();
+            }
+            $this->delayLoads = [];
+        }
 
         return $this;
+    }
+
+    public function delayLoad(EagerLoad $load) {
+        $this->delayLoads[] = $load;
     }
 }

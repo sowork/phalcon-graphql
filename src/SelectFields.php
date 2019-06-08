@@ -82,7 +82,7 @@ class SelectFields
                 if ($customQuery) {
                     $query = $customQuery(self::$args, $query);
                 }
-                $query->select($select);
+                $query->columns($select);
                 $query->with($with);
             };
         }
@@ -247,7 +247,7 @@ class SelectFields
         } else if (!$forRelation && !in_array($field, $select)) {
 //            $field = $parentTable ? ($parentTable.'.'.$field) : $field;
             if (!in_array($field, $select)) {
-                $select[] = $field;
+                $select[] = "[$field]";
             }
         }
     }
