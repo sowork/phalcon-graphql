@@ -13,10 +13,22 @@ final class QueryBuilder extends Builder
 //        throw new \LogicException(static::E_NOT_ALLOWED_METHOD_CALL);
 //    }
 
-//    public function columns($columns)
-//    {
-//        throw new \LogicException(static::E_NOT_ALLOWED_METHOD_CALL);
-//    }
+    public function columns($columns)
+    {
+        if (is_string($columns)) {
+            $columns = array_map(function($column) {
+                return '[' . trim($column) . ']';
+            }, explode(',', $columns));
+        } elseif (is_array($columns)) {
+            foreach ($columns as &$column) {
+                $column = "[$column]";
+            }
+        }
+        $this->_columns = $columns;
+
+        return $this;
+    }
+
     /** @var Loader|EagerLoad */
     private $parent;
     /** @var string */

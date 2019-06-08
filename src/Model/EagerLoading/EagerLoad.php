@@ -1,6 +1,7 @@
 <?php
 namespace Sowork\GraphQL\Model\EagerLoading;
 
+use http\Exception\RuntimeException;
 use Phalcon\Mvc\Model\Relation;
 use Phalcon\Mvc\Model\Resultset;
 use Phalcon\Version;
@@ -218,10 +219,14 @@ final class EagerLoad
                 foreach ($builder->getQuery()->execute() as $record) {
                     $records[] = $record;
 
+                    $foreignIdValue = $record->readAttribute($relReferencedField);
+                    if (!$foreignIdValue) {
+                        throw new \RuntimeException(sprintf('%s may lack the %s foreign key column', $alias, $relReferencedField));
+                    }
                     if ($isSingle) {
-                        $indexedRecords[$record->readAttribute($relReferencedField)] = $record;
+                        $indexedRecords[$foreignIdValue] = $record;
                     } else {
-                        $indexedRecords[$record->readAttribute($relReferencedField)][] = $record;
+                        $indexedRecords[$foreignIdValue][] = $record;
                     }
                 }
 
