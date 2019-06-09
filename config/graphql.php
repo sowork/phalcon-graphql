@@ -76,6 +76,12 @@ return [
         ],
     ],
 
+    /*
+     * You can define your own pagination type.
+     * Reference \Rebing\GraphQL\Support\PaginationType::class
+     */
+    'pagination_type' => \Sowork\GraphQL\PaginationType::class,
+
     /**
      * 自定义graphql类型
      */

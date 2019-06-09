@@ -52,14 +52,15 @@ class GraphQL
 
         $schema = $this->schema($schemaName);
 
-        $errorFormatter = (array) graphql_config('graphql.error_formatter', [static::class, 'formatError']);
-        $errorsHandler = (array) graphql_config('graphql.errors_handler', [static::class, 'handleErrors']);
+        $errorsHandler = graphql_config('graphql.errors_handler');
+        $errorsHandler = $errorsHandler ? $errorsHandler->toArray() : [static::class, 'handleErrors'];
+        $errorFormatter = graphql_config('graphql.error_formatter');
+        $errorFormatter = $errorFormatter ? $errorFormatter->toArray() : [static::class, 'formatError'];
 
-        $result = GraphQLBase::executeQuery($schema, $query, null, $context, $params, $operationName);
-//            ->setErrorsHandler()
-//            ->setErrorFormatter();
+        $result = GraphQLBase::executeQuery($schema, $query, null, $context, $params, $operationName)
+            ->setErrorsHandler($errorsHandler)
+            ->setErrorFormatter($errorFormatter);
         return $result->toArray();
-        print_r($result->toArray());
     }
 
     /**
@@ -187,6 +188,17 @@ class GraphQL
         return new ObjectType(array_merge([
             'fields' => $typeFields
         ], $opts));
+    }
+
+    public function paginate($typeName, $customName = null)
+    {
+        $name = $customName ?: $typeName . '_pagination';
+
+        if (!isset($this->typesInstances[$name])) {
+            $paginationType = graphql_config('graphql.pagination_type', PaginationType::class);
+            $this->typesInstances[$name] = new $paginationType($typeName, $customName);
+        }
+        return $this->typesInstances[$name];
     }
 
     public static function formatError(Error $e)

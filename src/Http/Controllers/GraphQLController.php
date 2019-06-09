@@ -48,7 +48,6 @@ class GraphQLController extends Controller
         $connection->setEventsManager($eventsManager);
         // ======================================================
 
-
         $request = $this->request;
 
         $schema = implode('/', $schema);
@@ -69,11 +68,9 @@ class GraphQLController extends Controller
         foreach ($batch as $batchItem) {
             $query = $batchItem['query'];
             $params = $batchItem[$paramsKey] ?? null;
-
             if (is_string($params)) {
                 $params = json_decode($params, true);
             }
-
             $completedQueries[] = $this->graphql->query($query, $params, array_merge($opts, [
                 'operationName' => $batchItem['operationName'] ?? null,
             ]));
@@ -84,7 +81,7 @@ class GraphQLController extends Controller
         $profiles = $di->get('profiler')->getProfiles();
         //遍历输出
         foreach ($profiles as $profile) {
-            echo "SQL语句: ", $profile->getSQLStatement(), "\n";
+//            echo "SQL语句: ", $profile->getSQLStatement(), "\n";
 //            echo "开始时间: ", $profile->getInitialTime(), "\n";
 //            echo "结束时间: ", $profile->getFinalTime(), "\n";
 //            echo "消耗时间: ", $profile->getTotalElapsedSeconds(), "\n";
