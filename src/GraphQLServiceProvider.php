@@ -7,6 +7,7 @@
 namespace Sowork\GraphQL;
 
 use Phalcon\Di\ServiceProviderInterface;
+use Phalcon\Mvc\Model\Manager;
 
 /**
  * graphql服务提供者

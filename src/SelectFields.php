@@ -6,6 +6,11 @@
 namespace Sowork\GraphQL;
 
 use GraphQL\Error\InvariantViolation;
+use GraphQL\Language\AST\FieldNode;
+use GraphQL\Language\AST\FragmentDefinitionNode;
+use GraphQL\Language\AST\FragmentSpreadNode;
+use GraphQL\Language\AST\InlineFragmentNode;
+use GraphQL\Language\AST\SelectionSetNode;
 use GraphQL\Type\Definition\ListOfType;
 use GraphQL\Type\Definition\ResolveInfo;
 use Phalcon\Mvc\Model;
@@ -20,6 +25,8 @@ class SelectFields
     private $relations = [];
     /** @var array */
     private static $privacyValidations = [];
+    /** @var ResolveInfo */
+    private $info;
     const FOREIGN_KEY = 'foreignKey';
 
     /**
@@ -29,26 +36,69 @@ class SelectFields
      */
     public function __construct(ResolveInfo $info, $parentType, array $args)
     {
+        $this->info = $info;
         if (!is_null($info->fieldNodes[0]->selectionSet)) {
             self::$args = $args;
-            $fields = self::getSelectableFieldsAndRelations($info->getFieldSelection(5), $parentType);
+            $fields = self::getSelectableFieldsAndRelations($this->getFieldSelection( $info, 5), $parentType);
             $this->select = $fields[0];
             $this->relations = $fields[1];
         }
     }
 
+    public function getFieldSelection(ResolveInfo $info, $depth = 0)
+    {
+        $data = [];
+
+        /** @var FieldNode $fieldNode */
+        foreach ($info->fieldNodes as $fieldNode) {
+            $data = array_merge_recursive($data, $this->foldSelectionSet($fieldNode->selectionSet, $depth));
+        }
+
+        $fields['fields'] = $data;
+        $fields['args'] = self::$args;
+        return $fields;
+    }
+
+    private function foldSelectionSet(SelectionSetNode $selectionSet, $descend)
+    {
+        $fields = [];
+
+        foreach ($selectionSet->selections as $selectionNode) {
+            if ($selectionNode instanceof FieldNode) {
+                $fields[$selectionNode->name->value]['fields'] = $descend > 0 && !empty($selectionNode->selectionSet)
+                    ? $this->foldSelectionSet($selectionNode->selectionSet, $descend - 1)
+                    : true;
+                $fields[$selectionNode->name->value]['args'] = [];
+                foreach ($selectionNode->arguments as $argument) {
+                    $fields[$selectionNode->name->value]['args'][$argument->name->value] = $argument->value->value;
+                }
+            } else if ($selectionNode instanceof FragmentSpreadNode) {
+                $spreadName = $selectionNode->name->value;
+                if (isset($this->info->fragments[$spreadName])) {
+                    /** @var FragmentDefinitionNode $fragment */
+                    $fragment = $this->info->fragments[$spreadName];
+                    $fields = array_merge_recursive($this->foldSelectionSet($fragment->selectionSet, $descend), $fields);
+                }
+            } else if ($selectionNode instanceof InlineFragmentNode) {
+                $fields = array_merge_recursive($this->foldSelectionSet($selectionNode->selectionSet, $descend), $fields);
+            }
+        }
+
+        return $fields;
+    }
+
     /**
      * Retrieve the fields (top level) and relations that
      * will be selected with the query
-     * @param array $requestedFields
-     * @param       $parentType
-     * @param null  $customQuery
-     * @param bool  $topLevel
-     * @return array | Closure - if first recursion, return an array,
+     * @param array    $requestedFields
+     * @param          $parentType
+     * @param callable $customQuery
+     * @param bool     $topLevel
+     * @return array | \Closure - if first recursion, return an array,
      *      where the first key is 'select' array and second is 'with' array.
      *      On other recursions return a closure that will be used in with
      */
-    public static function getSelectableFieldsAndRelations(array $requestedFields, $parentType, $customQuery = null, $topLevel = true)
+    public static function getSelectableFieldsAndRelations(array $requestedFields, $parentType, callable $customQuery = null, $topLevel = true)
     {
         $select = [];
         $with = [];
@@ -78,9 +128,9 @@ class SelectFields
                 $with
             ];
         } else {
-            return function($query) use ($with, $select, $customQuery){
+            return function($query) use ($with, $select, $customQuery, $requestedFields){
                 if ($customQuery) {
-                    $query = $customQuery(self::$args, $query);
+                    $query = $customQuery($requestedFields['args'] ?? self::$args, $query);
                 }
                 $query->columns($select);
                 $query->with($with);
@@ -99,7 +149,7 @@ class SelectFields
     protected static function handleFields(array $requestedFields, $parentType, array &$select, array &$with)
     {
         $parentTable = self::getTableNameFromParentType($parentType);
-        foreach ($requestedFields as $key => $field) {
+        foreach ($requestedFields['fields'] as $key => $field) {
             // Ignore __typename, as it's a special case
             if ($key === '__typename') {
                 continue;
@@ -130,7 +180,7 @@ class SelectFields
                 if (is_a($parentType, graphql_config('graphql.pagination_type', PaginationType::class))) {
                     self::handleFields($field, $fieldObject->config['type']->getWrappedType(), $select, $with);
                 } // With
-                else if (is_array($field) && $queryable) {
+                else if (is_array($field['fields']) && $queryable) {
                     if (isset($parentType->config['model'])) {
                         // Get the next parent type, so that 'with' queries could be made
                         // Both keys for the relation are required (e.g 'id' <-> 'user_id')
@@ -143,7 +193,7 @@ class SelectFields
                             $foreignKey = [$foreignKey];
                         }
                         foreach ($foreignKey as $foreign) {
-                            $field[$foreign] = self::FOREIGN_KEY;
+                            $field['fields'][$foreign] = self::FOREIGN_KEY;
                         }
                         // New parent type, which is the relation
                         $newParentType = $parentType->getField($key)->config['type'];
@@ -285,5 +335,9 @@ class SelectFields
     public function getRelations()
     {
         return $this->relations;
+    }
+
+    public function getResolveInfo() {
+        return $this->info;
     }
 }
