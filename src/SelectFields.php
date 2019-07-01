@@ -6,11 +6,6 @@
 namespace Sowork\GraphQL;
 
 use GraphQL\Error\InvariantViolation;
-use GraphQL\Language\AST\FieldNode;
-use GraphQL\Language\AST\FragmentDefinitionNode;
-use GraphQL\Language\AST\FragmentSpreadNode;
-use GraphQL\Language\AST\InlineFragmentNode;
-use GraphQL\Language\AST\SelectionSetNode;
 use GraphQL\Type\Definition\ListOfType;
 use GraphQL\Type\Definition\ResolveInfo;
 use Phalcon\Mvc\Model;
@@ -39,52 +34,21 @@ class SelectFields
         $this->info = $info;
         if (!is_null($info->fieldNodes[0]->selectionSet)) {
             self::$args = $args;
-            $fields = self::getSelectableFieldsAndRelations($this->getFieldSelection( $info, 5), $parentType);
+            $requestedFields = $this->getFieldSelection($info, $args, 5);
+            $fields = self::getSelectableFieldsAndRelations($requestedFields, $parentType);
             $this->select = $fields[0];
             $this->relations = $fields[1];
         }
     }
 
-    public function getFieldSelection(ResolveInfo $info, $depth = 0)
+    private function getFieldSelection(ResolveInfo $resolveInfo, array $args, int $depth): array
     {
-        $data = [];
+        $resolveInfoFieldsAndArguments = new ResolveInfoFieldsAndArguments($resolveInfo);
 
-        /** @var FieldNode $fieldNode */
-        foreach ($info->fieldNodes as $fieldNode) {
-            $data = array_merge_recursive($data, $this->foldSelectionSet($fieldNode->selectionSet, $depth));
-        }
-
-        $fields['fields'] = $data;
-        $fields['args'] = self::$args;
-        return $fields;
-    }
-
-    private function foldSelectionSet(SelectionSetNode $selectionSet, $descend)
-    {
-        $fields = [];
-
-        foreach ($selectionSet->selections as $selectionNode) {
-            if ($selectionNode instanceof FieldNode) {
-                $fields[$selectionNode->name->value]['fields'] = $descend > 0 && !empty($selectionNode->selectionSet)
-                    ? $this->foldSelectionSet($selectionNode->selectionSet, $descend - 1)
-                    : true;
-                $fields[$selectionNode->name->value]['args'] = [];
-                foreach ($selectionNode->arguments as $argument) {
-                    $fields[$selectionNode->name->value]['args'][$argument->name->value] = $argument->value->value;
-                }
-            } else if ($selectionNode instanceof FragmentSpreadNode) {
-                $spreadName = $selectionNode->name->value;
-                if (isset($this->info->fragments[$spreadName])) {
-                    /** @var FragmentDefinitionNode $fragment */
-                    $fragment = $this->info->fragments[$spreadName];
-                    $fields = array_merge_recursive($this->foldSelectionSet($fragment->selectionSet, $descend), $fields);
-                }
-            } else if ($selectionNode instanceof InlineFragmentNode) {
-                $fields = array_merge_recursive($this->foldSelectionSet($selectionNode->selectionSet, $descend), $fields);
-            }
-        }
-
-        return $fields;
+        return [
+            'args' => $args,
+            'fields' => $resolveInfoFieldsAndArguments->getFieldsAndArgumentsSelection($depth),
+        ];
     }
 
     /**
