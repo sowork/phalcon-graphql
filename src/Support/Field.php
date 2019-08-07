@@ -1,15 +1,12 @@
 <?php
-/**
- * @author: xingshenqiang<xingshenqiang@uniondrug.cn>
- * @date  :   2019-05-22
- */
-namespace Sowork\GraphQL;
+
+namespace Sowork\GraphQL\Support;
 
 use GraphQL\Type\Definition\NonNull;
-use Phalcon\Mvc\Model\EagerLoadingTrait;
 use Sowork\GraphQL\Fluent\Fluent;
+use Sowork\GraphQL\SelectFields;
 
-class Query extends Fluent
+class Field extends Fluent
 {
     /**
      * Override this in your queries or mutations
@@ -175,8 +172,11 @@ class Query extends Fluent
             // $arguments[2] is context (params given with the query)
             // $arguments[3] is ResolveInfo
             if (isset($arguments[3])) {
-                $fields = new SelectFields($arguments[3], $this->type(), $arguments[1]);
-                $arguments[2] = $fields;
+                $arguments[] = function () use ($arguments): SelectFields {
+                    return new SelectFields($arguments[3], $this->type(), $arguments[1]);
+                };
+//                $fields = new SelectFields($arguments[3], $this->type(), $arguments[1]);
+//                $arguments[2] = $fields;
             }
             return call_user_func_array($resolver, $arguments);
         };

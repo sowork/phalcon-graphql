@@ -1,19 +1,15 @@
 {
   "name": "sowork/phalcon-graphql",
   "description": "Phalcon GraphQL Library",
+  "keywords": ["phalcon", "graphql"],
   "require": {
-    "php": ">=7.1",
+    "php": ">= 7.1",
     "ext-json": "*",
+    "ext-mbstring": "*",
     "ext-phalcon": ">=3.3.0",
     "webonyx/graphql-php": "^0.12",
     "sowork/phalcon-eagerload": "dev-master"
   },
-  "repositories": [
-    {
-      "type": "path",
-      "url": "../phalcon-eagerload"
-    }
-  ],
   "autoload": {
     "psr-4": {
       "Sowork\\GraphQL\\": "src/"
@@ -21,5 +17,8 @@
     "files": [
       "src/helpers.php"
     ]
+  },
+  "require-dev": {
+    "phalcon/dd": "^1.1"
   }
 }

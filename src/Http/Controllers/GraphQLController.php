@@ -1,13 +1,10 @@
 <?php
-/**
- * @author: xingshenqiang<xingshenqiang@uniondrug.cn>
- * @date:   2019-04-20
- */
 
 namespace Sowork\GraphQL\Http\Controllers;
 
 
 use Phalcon\Mvc\Controller;
+use Sowork\GraphQL\GraphQLUploadMiddleware;
 
 /**
  * graphql请求路由处理类
@@ -16,6 +13,11 @@ use Phalcon\Mvc\Controller;
  */
 class GraphQLController extends Controller
 {
+    /**
+     * @param mixed ...$schema
+     * @return false|string
+     * @throws \GraphQL\Server\RequestError
+     */
     public function queryAction(...$schema)
     {
         // ==============================================================
@@ -48,13 +50,13 @@ class GraphQLController extends Controller
         $connection->setEventsManager($eventsManager);
         // ======================================================
 
-        $request = $this->request;
 
         $schema = implode('/', $schema);
         if (!$schema) {
             $schema = graphql_config('graphql.default_schema');
         }
-        $body = getInputData($request);
+        $middleware = new GraphQLUploadMiddleware();
+        $body = $middleware->processRequest($this->request);
         // 如果query没有发现，意味着这是一个批量请求
         $batch = $body['query'] ? [$body] : $body;
 
@@ -80,7 +82,7 @@ class GraphQLController extends Controller
         //获取所有的prifler记录结果，这是一个数组，每条记录对应一个sql语句
         $profiles = $di->get('profiler')->getProfiles();
         //遍历输出
-        foreach ($profiles as $profile) {
+        foreach ($profiles ?? [] as $profile) {
 //            echo "SQL语句: ", $profile->getSQLStatement(), "\n";
 //            echo "开始时间: ", $profile->getInitialTime(), "\n";
 //            echo "结束时间: ", $profile->getFinalTime(), "\n";
@@ -88,47 +90,6 @@ class GraphQLController extends Controller
         }
 
         // ====================================================
-
-        return $body['query'] ? json_encode($completedQueries, true) : json_encode($completedQueries[0], true);
-
-//        $queryType = new ObjectType([
-//            'name'   => 'Query',
-//            'fields' => [
-//                'echo' => [
-//                    'type'    => Type::string(),
-//                    'args'    => [
-//                        'message' => ['type' => Type::string()],
-//                    ],
-//                    'resolve' => function ($root, $args) {
-//                        return $root['prefix'] . $args['message'];
-//                    }
-//                ],
-//            ],
-//        ]);
-//        $mutationType = new ObjectType([
-//            'name'   => 'Calc',
-//            'fields' => [
-//                'sum' => [
-//                    'type'    => Type::int(),
-//                    'args'    => [
-//                        'x' => ['type' => Type::int()],
-//                        'y' => ['type' => Type::int()],
-//                    ],
-//                    'resolve' => function ($root, $args) {
-//                        return $args['x'] + $args['y'];
-//                    },
-//                ],
-//            ],
-//        ]);
-//        // See docs on schema options:
-//        // http://webonyx.github.io/graphql-php/type-system/schema/#configuration-options
-//        $graphqlSchema = new Schema([
-//            'query'    => $queryType,
-//            'mutation' => $mutationType,
-//        ]);
-//
-////        $query = $this->request->getJsonRawBody()->query ?? '{}';
-//        $result = $this->graphql->query($graphqlSchema);
-//        echo json_encode($result);
+        return !$body['query'] ? json_encode($completedQueries, true) : json_encode($completedQueries[0], true);
     }
 }

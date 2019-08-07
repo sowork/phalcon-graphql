@@ -4,13 +4,24 @@ declare(strict_types=1);
 
 namespace Sowork\GraphQL;
 
-use GraphQL\Language\AST\FieldNode;
 use GraphQL\Language\AST\ArgumentNode;
-use GraphQL\Language\AST\VariableNode;
-use GraphQL\Type\Definition\ResolveInfo;
-use GraphQL\Language\AST\SelectionSetNode;
+use GraphQL\Language\AST\BooleanValueNode;
+use GraphQL\Language\AST\EnumValueNode;
+use GraphQL\Language\AST\FieldNode;
+use GraphQL\Language\AST\FloatValueNode;
 use GraphQL\Language\AST\FragmentSpreadNode;
 use GraphQL\Language\AST\InlineFragmentNode;
+use GraphQL\Language\AST\IntValueNode;
+use GraphQL\Language\AST\ListValueNode;
+use GraphQL\Language\AST\NodeList;
+use GraphQL\Language\AST\NullValueNode;
+use GraphQL\Language\AST\ObjectFieldNode;
+use GraphQL\Language\AST\ObjectValueNode;
+use GraphQL\Language\AST\SelectionSetNode;
+use GraphQL\Language\AST\StringValueNode;
+use GraphQL\Language\AST\ValueNode;
+use GraphQL\Language\AST\VariableNode;
+use GraphQL\Type\Definition\ResolveInfo;
 
 /**
  * This adapts \GraphQL\Type\Definition\ResolveInfo::getFieldSelection
@@ -76,6 +87,7 @@ class ResolveInfoFieldsAndArguments
      * @param  int  $depth  How many levels to include in output
      * @return array
      * @see \GraphQL\Type\Definition\ResolveInfo::getFieldSelection
+     * @throws \Exception
      */
     public function getFieldsAndArgumentsSelection(int $depth = 0): array
     {
@@ -93,10 +105,11 @@ class ResolveInfoFieldsAndArguments
     }
 
     /**
-     * @param  SelectionSetNode  $selectionSet
-     * @param  int  $descend
+     * @param  SelectionSetNode $selectionSet
+     * @param  int              $descend
      * @return array
      * @see \GraphQL\Type\Definition\ResolveInfo::foldSelectionSet
+     * @throws \Exception
      */
     private function foldSelectionSet(SelectionSetNode $selectionSet, int $descend): array
     {
@@ -114,7 +127,7 @@ class ResolveInfoFieldsAndArguments
                 ];
 
                 foreach ($selectionNode->arguments ?? [] as $argumentNode) {
-                    $fields[$name]['args'][$argumentNode->name->value] = $this->getValue($argumentNode);
+                    $fields[$name]['args'][$argumentNode->name->value] = $this->getValue($argumentNode->value);
                 }
             } elseif ($selectionNode instanceof FragmentSpreadNode) {
                 $spreadName = $selectionNode->name->value;
@@ -132,15 +145,65 @@ class ResolveInfoFieldsAndArguments
         return $fields;
     }
 
-    private function getValue(ArgumentNode $argumentNode)
+    /**
+     * @param ValueNode $value
+     * @return mixed
+     * @throws \Exception
+     */
+    private function getValue(ValueNode $value)
     {
-        $value = $argumentNode->value;
         if ($value instanceof VariableNode) {
             $variableName = $value->name->value;
 
             return $this->info->variableValues[$variableName] ?? null;
         }
+        // Scalar Types
+        if ($value instanceof IntValueNode || $value instanceof FloatValueNode || $value instanceof StringValueNode || $value instanceof BooleanValueNode || $value instanceof EnumValueNode) {
+            return $value->value;
+        }
+        // null Type
+        if ($value instanceof NullValueNode) {
+            return null;
+        }
+        // object Type
+        if ($value instanceof ObjectValueNode) {
+            return $this->getInputObjectValue($value);
+        }
+        // list object Type
+        if ($value instanceof ListValueNode) {
+            return $this->getInputListObjectValue($value);
+        }
 
-        return $argumentNode->value->value;
+        throw new \Exception('Failed to resolve unknown ValueNode type');
+    }
+
+    /**
+     * @param ObjectValueNode $objectValueNode
+     * @return array
+     * @throws \Exception
+     */
+    private function getInputObjectValue(ObjectValueNode $objectValueNode)
+    {
+        $value = [];
+        foreach ($objectValueNode->fields->getIterator() as $item) {
+            if ($item instanceof ObjectFieldNode) {
+                $value[$item->name->value] = $this->getValue($item->value);
+            }
+        }
+        return $value;
+    }
+
+    /**
+     * @param ListValueNode $listValueNode
+     * @return array
+     * @throws \Exception
+     */
+    private function getInputListObjectValue(ListValueNode $listValueNode)
+    {
+        $value = [];
+        foreach ($listValueNode->values as $valueNode) {
+            $value[] = $this->getValue($valueNode);
+        }
+        return $value;
     }
 }

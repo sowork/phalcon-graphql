@@ -1,6 +1,6 @@
 <?php
 
-namespace Sowork\GraphQL;
+namespace Sowork\GraphQL\Support;
 
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\Type as GraphQLType;

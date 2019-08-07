@@ -1,8 +1,4 @@
 <?php
-/**
- * @author: xingshenqiang<xingshenqiang@uniondrug.cn>
- * @date:   2019-05-24
- */
 
 namespace Sowork\GraphQL\Error;
 

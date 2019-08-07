@@ -1,14 +1,13 @@
 <?php
-/**
- * @author: xingshenqiang<xingshenqiang@uniondrug.cn>
- * @date  :   2019-05-25
- */
+
 namespace Sowork\GraphQL;
 
 use GraphQL\Error\InvariantViolation;
 use GraphQL\Type\Definition\ListOfType;
 use GraphQL\Type\Definition\ResolveInfo;
+use GraphQL\Type\Definition\UnionType;
 use Phalcon\Mvc\Model;
+use Sowork\GraphQL\Support\PaginationType;
 
 class SelectFields
 {
@@ -20,8 +19,6 @@ class SelectFields
     private $relations = [];
     /** @var array */
     private static $privacyValidations = [];
-    /** @var ResolveInfo */
-    private $info;
     const FOREIGN_KEY = 'foreignKey';
 
     /**
@@ -31,7 +28,6 @@ class SelectFields
      */
     public function __construct(ResolveInfo $info, $parentType, array $args)
     {
-        $this->info = $info;
         if (!is_null($info->fieldNodes[0]->selectionSet)) {
             self::$args = $args;
             $requestedFields = $this->getFieldSelection($info, $args, 5);
@@ -152,7 +148,13 @@ class SelectFields
                         $manager = graphql_app(Model\Manager::class);
                         $manager->load($parentType->config['model']);
                         $relation = $manager->getRelationByAlias($parentType->config['model'], $key);
-                        $foreignKey = $relation->getReferencedFields();
+                        if (!$relation) {
+                            throw new \Exception(sprintf('%s unknown relation: %s', $parentType->config['model'], $key));
+                        }
+                        $foreignKey = '';
+                        if (method_exists($relation, 'getReferencedFields')) {
+                            $foreignKey = $relation->getReferencedFields();
+                        }
                         if (is_string($foreignKey)) {
                             $foreignKey = [$foreignKey];
                         }
@@ -185,7 +187,7 @@ class SelectFields
         // If parent type is an interface or union we select all fields
         // because we don't know which other fields are required
         // from types which implement this interface
-        if (is_a($parentType, InterfaceType::class) || is_a($parentType, UnionType::class)) {
+        if (is_a($parentType, UnionType::class)) {
             $select = ['*'];
         }
     }
@@ -261,7 +263,7 @@ class SelectFields
         } else if (!$forRelation && !in_array($field, $select)) {
 //            $field = $parentTable ? ($parentTable.'.'.$field) : $field;
             if (!in_array($field, $select)) {
-                $select[] = "[$field]";
+                $select[] = $field;
             }
         }
     }
@@ -299,9 +301,5 @@ class SelectFields
     public function getRelations()
     {
         return $this->relations;
-    }
-
-    public function getResolveInfo() {
-        return $this->info;
     }
 }

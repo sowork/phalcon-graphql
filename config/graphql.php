@@ -1,8 +1,4 @@
 <?php
-/**
- * @author: xingshenqiang<xingshenqiang@uniondrug.cn>
- * @date:   2019-04-20
- */
 
 return [
     /**

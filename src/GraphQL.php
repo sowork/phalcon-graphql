@@ -11,6 +11,8 @@ use GraphQL\Type\Schema;
 use GraphQL\Type\Schema as DefaultSchema;
 use Sowork\GraphQL\Error\ValidationError;
 use Sowork\GraphQL\Exceptions\SchemaNotFound;
+use Sowork\GraphQL\Support\PaginationType;
+use Sowork\GraphQL\Support\Type;
 
 /**
  * Class GraphQL
@@ -49,17 +51,18 @@ class GraphQL
         $context = $opts['context'];
         $schemaName = $opts['schema'];
         $operationName = $opts['operationName'];
-
         $schema = $this->schema($schemaName);
-
         $errorsHandler = graphql_config('graphql.errors_handler');
-        $errorsHandler = $errorsHandler ? $errorsHandler->toArray() : [static::class, 'handleErrors'];
+        $errorsHandler = $errorsHandler ? $errorsHandler->toArray() : [
+            static::class,
+            'handleErrors'
+        ];
         $errorFormatter = graphql_config('graphql.error_formatter');
-        $errorFormatter = $errorFormatter ? $errorFormatter->toArray() : [static::class, 'formatError'];
-
-        $result = GraphQLBase::executeQuery($schema, $query, null, $context, $params, $operationName)
-            ->setErrorsHandler($errorsHandler)
-            ->setErrorFormatter($errorFormatter);
+        $errorFormatter = $errorFormatter ? $errorFormatter->toArray() : [
+            static::class,
+            'formatError'
+        ];
+        $result = GraphQLBase::executeQuery($schema, $query, null, $context, $params, $operationName)->setErrorsHandler($errorsHandler)->setErrorFormatter($errorFormatter);
         return $result->toArray();
     }
 

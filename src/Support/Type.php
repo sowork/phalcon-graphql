@@ -1,26 +1,22 @@
 <?php
-/**
- * @author: xingshenqiang<xingshenqiang@uniondrug.cn>
- * @date:   2019-05-22
- */
 
-namespace Sowork\GraphQL;
+namespace Sowork\GraphQL\Support;
 
 
 use GraphQL\Type\Definition\FieldDefinition;
 use GraphQL\Type\Definition\ObjectType;
 use Sowork\GraphQL\Fluent\Fluent;
+use GraphQL\Type\Definition\Type as GraphqlType;
+use Sowork\GraphQL\Support\Contracts\TypeConvertible;
 
 /**
  * Class Type
  * @package Sowork\GraphQL
  */
-class Type extends Fluent
+class Type extends Fluent implements TypeConvertible
 {
     protected static $instances = [];
 
-    protected $inputObject = false;
-    protected $enumObject = false;
     protected $unionType = false;
 
     public function attributes()
@@ -96,7 +92,7 @@ class Type extends Fluent
             }
         ], $attributes);
 
-        if (sizeof($interfaces)) {
+        if (count($interfaces)) {
             $attributes['interfaces'] = $interfaces;
         }
 
@@ -113,16 +109,8 @@ class Type extends Fluent
         return $this->getAttributes();
     }
 
-    public function toType()
+    public function toType(): GraphqlType
     {
-//        if($this->inputObject)
-//        {
-//            return new InputObjectType($this->toArray());
-//        }
-//        if ($this->enumObject)
-//        {
-//            return new EnumType($this->toArray());
-//        }
         return new ObjectType($this->toArray());
     }
 
