@@ -3,11 +3,12 @@
 namespace Sowork\GraphQL\Support;
 
 use GraphQL\Type\Definition\NonNull;
-use Sowork\GraphQL\Fluent\Fluent;
 use Sowork\GraphQL\SelectFields;
 
-class Field extends Fluent
+class Field
 {
+    protected $attributes = [];
+
     /**
      * Override this in your queries or mutations
      * to provide custom authorization
@@ -223,14 +224,8 @@ class Field extends Fluent
         return isset($attributes[$key]) ? $attributes[$key] : null;
     }
 
-    /**
-     * Dynamically check if an attribute is set.
-     * @param  string $key
-     * @return void
-     */
-    public function __isset($key)
+    public function __set(string $key, $value): void
     {
-        $attributes = $this->getAttributes();
-        return isset($attributes[$key]);
+        $this->attributes[$key] = $value;
     }
 }
