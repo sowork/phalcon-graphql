@@ -1,11 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sowork\GraphQL\Support;
 
+use GraphQL\Type\Definition\InputObjectType;
+use GraphQL\Type\Definition\ListOfType;
 use GraphQL\Type\Definition\NonNull;
+use GraphQL\Type\Definition\WrappingType;
+use Phalcon\Validation;
+use Sowork\GraphQL\Error\AuthorizationError;
+use Sowork\GraphQL\Error\ValidationError;
 use Sowork\GraphQL\SelectFields;
+use Phalcon\Validation\Validator;
+use GraphQL\Type\Definition\Type as GraphqlType;
 
-class Field
+abstract class Field
 {
     protected $attributes = [];
 
@@ -13,22 +23,22 @@ class Field
      * Override this in your queries or mutations
      * to provide custom authorization
      */
-    public function authorize(array $args)
+    public function authorize(array $args): bool
     {
         return true;
     }
 
-    public function attributes()
+    public function attributes(): array
     {
         return [];
     }
 
-    public function type()
+    public function type(): GraphqlType
     {
         return null;
     }
 
-    public function args()
+    public function args(): array
     {
         return [];
     }
@@ -38,17 +48,17 @@ class Field
      * @param array $args submitted arguments
      * @return array
      */
-    public function validationErrorMessages(array $args = [])
+    public function validationErrorMessages(array $args = []): array
     {
         return [];
     }
 
-    protected function rules(array $args = [])
+    protected function rules(array $args = []): array
     {
         return [];
     }
 
-    public function getRules()
+    public function getRules(): array
     {
         $arguments = func_get_args();
         $rules = call_user_func_array([
@@ -64,7 +74,7 @@ class Field
                     $argsRules[$name] = $arg['rules'];
                 }
             }
-            if (isset($arg['type']) && ($arg['type'] instanceof NonNull || isset(array_get($arguments, 0, [])[$name]))) {
+            if (isset($arg['type']) && ($arg['type'] instanceof NonNull || isset($arguments[0][$name]))) {
                 $argsRules = array_merge($argsRules, $this->inferRulesFromType($arg['type'], $name, $arguments));
             }
         }
@@ -79,7 +89,7 @@ class Field
         return $rules;
     }
 
-    public function inferRulesFromType($type, $prefix, $resolutionArguments)
+    public function inferRulesFromType($type, $prefix, $resolutionArguments): array
     {
         $rules = [];
         // make sure we are dealing with the actual type
@@ -103,7 +113,7 @@ class Field
         return $rules;
     }
 
-    public function getInputTypeRules(InputObjectType $input, $prefix, $resolutionArguments)
+    public function getInputTypeRules(InputObjectType $input, $prefix, $resolutionArguments): array
     {
         $rules = [];
         foreach ($input->getFields() as $name => $field) {
@@ -126,58 +136,67 @@ class Field
         return $rules;
     }
 
-    protected function getResolver()
+    protected function getResolver(): ?\Closure
     {
         if (!method_exists($this, 'resolve')) {
             return null;
         }
-        $resolver = [
-            $this,
-            'resolve'
-        ];
-        $authorize = [
-            $this,
-            'authorize'
-        ];
+
+        $resolver = [$this, 'resolve'];
+        $authorize = [$this, 'authorize'];
+
         return function() use ($resolver, $authorize){
             $arguments = func_get_args();
             // Get all given arguments
             if (!is_null($arguments[2]) && is_array($arguments[2])) {
                 $arguments[1] = array_merge($arguments[1], $arguments[2]);
             }
-            // Authorize
-            //            if(call_user_func($authorize, $arguments[1]) != true)
-            //            {
-            //                throw with(new AuthorizationError('Unauthorized'));
-            //            }
             // Validate mutation arguments
-            //            if(method_exists($this, 'getRules'))
-            //            {
-            //                $args = array_get($arguments, 1, []);
-            //                $rules = call_user_func_array([$this, 'getRules'], [$args]);
-            //                if(sizeof($rules))
-            //                {
-            //
-            //                    // allow our error messages to be customised
-            //                    $messages = $this->validationErrorMessages($args);
-            //
-            //                    $validator = Validator::make($args, $rules, $messages);
-            //                    if($validator->fails())
-            //                    {
-            //                        throw with(new ValidationError('validation'))->setValidator($validator);
-            //                    }
-            //                }
-            //            }
-            // Replace the context argument with 'selects and relations'
-            // $arguments[1] is direct args given with the query
-            // $arguments[2] is context (params given with the query)
-            // $arguments[3] is ResolveInfo
+            if(method_exists($this, 'getRules'))
+            {
+                $args = $arguments[1] ?? [];
+                $rules = call_user_func_array([$this, 'getRules'], [$args]);
+                if(count($rules))
+                {
+
+                    // allow our error messages to be customised
+                    $customMessages = $this->validationErrorMessages($args);
+
+                    /** @var Validation $validation */
+                    $validation = graphql_app(graphql_config('graphql.validation_service_key') ?? 'validation');
+                    $validatorMap = graphql_config()->path('validator');
+                    foreach ($rules as $name => $ruleArr) {
+                        foreach ($ruleArr as $rule) {
+                            if (empty($validatorMap[$rule])) {
+                                throw new \RuntimeException("unknown `{$rule}` validation rule");
+                            }
+                            $validator = new $validatorMap[$rule]([
+                                'message' => $customMessages[$name] ?? null
+                            ]);
+                            if (!($validator instanceof Validator)) {
+                                throw new \RuntimeException("`{$rule}` is not a standard Validator instance");
+                            }
+                            $validation->add($name, $validator);
+                        }
+                    };
+                    $messages = $validation->validate($args);
+                    if($messages->count()) {
+                        throw new ValidationError('validation', $validation);
+                    }
+                }
+            }
+
+            // Authorize
+            if(call_user_func($authorize, $arguments[1]) != true)
+            {
+                throw new AuthorizationError('Unauthorized');
+            }
+
+            // Add the 'selects and relations' feature as 5th arg
             if (isset($arguments[3])) {
                 $arguments[] = function () use ($arguments): SelectFields {
                     return new SelectFields($arguments[3], $this->type(), $arguments[1]);
                 };
-//                $fields = new SelectFields($arguments[3], $this->type(), $arguments[1]);
-//                $arguments[2] = $fields;
             }
             return call_user_func_array($resolver, $arguments);
         };
@@ -187,7 +206,7 @@ class Field
      * Get the attributes from the container.
      * @return array
      */
-    public function getAttributes()
+    public function getAttributes(): array
     {
         $attributes = $this->attributes();
         $attributes = array_merge($this->attributes, [
@@ -208,7 +227,7 @@ class Field
      * Convert the Fluent instance to an array.
      * @return array
      */
-    public function toArray()
+    public function toArray(): array
     {
         return $this->getAttributes();
     }

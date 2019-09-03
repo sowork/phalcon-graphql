@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sowork\GraphQL;
 
 use GraphQL\Error\Debug;
@@ -8,11 +10,11 @@ use GraphQL\Error\FormattedError;
 use GraphQL\GraphQL as GraphQLBase;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Schema;
-use GraphQL\Type\Schema as DefaultSchema;
 use Sowork\GraphQL\Error\ValidationError;
 use Sowork\GraphQL\Exceptions\SchemaNotFound;
 use Sowork\GraphQL\Support\PaginationType;
 use Sowork\GraphQL\Support\Type;
+use GraphQL\Type\Definition\Type as BaseType;
 
 /**
  * Class GraphQL
@@ -33,7 +35,7 @@ class GraphQL
      * @return mixed
      * @throws \Exception
      */
-    public function query($query, $params = [], $opts = [], $debugMode = false)
+    public function query($query, $params = [], $opts = [], $debugMode = false): array
     {
         return $this->queryAndReturnResult($query, $params, $opts, $debugMode);
     }
@@ -46,7 +48,7 @@ class GraphQL
      * @return mixed
      * @throws \Exception
      */
-    public function queryAndReturnResult($query, $params = [], $opts = [], $debugMode = false)
+    public function queryAndReturnResult($query, $params = [], $opts = [], $debugMode = false): array
     {
         $context = $opts['context'];
         $schemaName = $opts['schema'];
@@ -62,18 +64,20 @@ class GraphQL
             static::class,
             'formatError'
         ];
-        $result = GraphQLBase::executeQuery($schema, $query, null, $context, $params, $operationName)->setErrorsHandler($errorsHandler)->setErrorFormatter($errorFormatter);
+        $result = GraphQLBase::executeQuery($schema, $query, null, $context, $params, $operationName)
+            ->setErrorsHandler($errorsHandler)
+            ->setErrorFormatter($errorFormatter);
         return $result->toArray();
     }
 
     /**
      * @param $schema
-     * @return DefaultSchema
+     * @return Schema
      * @throws \Exception
      */
-    public function schema($schema)
+    public function schema($schema): Schema
     {
-        if ($schema instanceof DefaultSchema) {
+        if ($schema instanceof Schema) {
             return $schema;
         }
 
@@ -91,7 +95,7 @@ class GraphQL
 
         //Get the types either from the schema, or the global types.
         $types = [];
-        if (sizeof($schemaTypes)) {
+        if (count($schemaTypes)) {
             foreach ($schemaTypes as $name => $type) {
                 $objectType = $this->objectType($type, is_numeric($name) ? [] : [
                     'name' => $name
@@ -125,7 +129,7 @@ class GraphQL
         ]);
     }
 
-    public function type($name, $fresh = false)
+    public function type($name, $fresh = false): BaseType
     {
         if (!isset($this->types[$name])) {
             throw new \Exception('Type ' . $name . ' not found.');
@@ -147,7 +151,7 @@ class GraphQL
         return $instance;
     }
 
-    public function objectType($type, $opts = [])
+    public function objectType($type, $opts = []): BaseType
     {
         // If it's already an ObjectType, just update properties and return it.
         // If it's an array, assume it's an array of fields and build ObjectType
@@ -172,7 +176,7 @@ class GraphQL
         return $objectType;
     }
 
-    protected function buildObjectTypeFromFields($fields, $opts = [])
+    protected function buildObjectTypeFromFields($fields, $opts = []): ObjectType
     {
         $typeFields = [];
         foreach ($fields as $name => $field) {
@@ -193,7 +197,7 @@ class GraphQL
         ], $opts));
     }
 
-    public function paginate($typeName, $customName = null)
+    public function paginate($typeName, $customName = null): BaseType
     {
         $name = $customName ?: $typeName . '_pagination';
 
@@ -204,7 +208,7 @@ class GraphQL
         return $this->typesInstances[$name];
     }
 
-    public static function formatError(Error $e)
+    public static function formatError(Error $e): array
     {
         $debug = graphql_config('graphql.debug') ? (Debug::INCLUDE_DEBUG_MESSAGE | Debug::INCLUDE_TRACE) : 0;
         $formatter = FormattedError::prepareFormatter(null, $debug);
@@ -213,23 +217,27 @@ class GraphQL
         $previous = $e->getPrevious();
         if($previous && $previous instanceof ValidationError)
         {
-            $error['validation'] = $previous->getValidatorMessages();
+            $msg = [];
+            foreach ($previous->getValidatorMessages() as $message) {
+                $msg[$message->getField()] = $message->getMessage();
+            }
+            $error['extensions']['validation'] = $msg;
         }
 
         return $error;
     }
 
-    public static function handleErrors(array $errors, callable $formatter)
+    public static function handleErrors(array $errors, callable $formatter): array
     {
         return array_map($formatter, $errors);
     }
 
-    public function addSchema($name, $schema)
+    public function addSchema($name, $schema): void
     {
         $this->mergeSchemas($name, $schema);
     }
 
-    public function mergeSchemas($name, $schema)
+    public function mergeSchemas($name, $schema): void
     {
         if (isset($this->schemas[$name]) && $this->schemas[$name]) {
             $this->schemas[$name] = array_merge_recursive($this->schemas[$name], $schema);
@@ -238,7 +246,7 @@ class GraphQL
         }
     }
 
-    public function addType($class, $name = null)
+    public function addType($class, $name = null): void
     {
         if (!$name) {
             $type = is_object($class) ? $class : new $class;
@@ -259,7 +267,7 @@ class GraphQL
      *
      * @return mixed
      */
-    public static function routeNameTransformer($name, $schemaParameterPattern, $queryRoute)
+    public static function routeNameTransformer($name, $schemaParameterPattern, $queryRoute): string
     {
         $multiLevelPath = explode('/', $name);
         $routeName = null;

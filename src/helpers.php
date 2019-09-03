@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 if (!function_exists('getInputData')) {
     /**
      * 获取请求发送入参
@@ -25,7 +27,7 @@ if (!function_exists('getInputData')) {
 if (!function_exists('graphql_config')) {
     /**
      * 获取配置服务对象
-     * @return mixed|\Phalcon\Config
+     * @return \Phalcon\Config|mixed|string
      */
     function graphql_config()
     {

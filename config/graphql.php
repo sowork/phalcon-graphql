@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     /**
      * 开发模式
@@ -76,7 +78,7 @@ return [
      * You can define your own pagination type.
      * Reference \Rebing\GraphQL\Support\PaginationType::class
      */
-    'pagination_type' => \Sowork\GraphQL\PaginationType::class,
+    'pagination_type' => \Sowork\GraphQL\Support\PaginationType::class,
 
     /**
      * 自定义graphql类型
@@ -94,4 +96,14 @@ return [
      * 参数的key命名字符串
      */
     'params_key'    => 'variables',
+
+    /**
+     * 验证服务名称
+     */
+    'validation_service_key' => 'validation',
+
+    /**
+     * 验证服务调用的方法名称
+     */
+    'validation_method_key' => 'validate',
 ];

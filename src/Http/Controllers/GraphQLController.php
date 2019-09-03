@@ -1,7 +1,8 @@
 <?php
 
-namespace Sowork\GraphQL\Http\Controllers;
+declare(strict_types=1);
 
+namespace Sowork\GraphQL\Http\Controllers;
 
 use Phalcon\Mvc\Controller;
 use Sowork\GraphQL\GraphQLUploadMiddleware;
@@ -15,10 +16,10 @@ class GraphQLController extends Controller
 {
     /**
      * @param mixed ...$schema
-     * @return false|string
+     * @return string
      * @throws \GraphQL\Server\RequestError
      */
-    public function queryAction(...$schema)
+    public function queryAction(...$schema): string
     {
         // ==============================================================
         $di = graphql_app();
@@ -90,6 +91,6 @@ class GraphQLController extends Controller
         }
 
         // ====================================================
-        return !$body['query'] ? json_encode($completedQueries, true) : json_encode($completedQueries[0], true);
+        return !$body['query'] ? json_encode($completedQueries) : json_encode($completedQueries[0]);
     }
 }

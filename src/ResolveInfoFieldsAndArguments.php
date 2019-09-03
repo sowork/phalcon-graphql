@@ -192,11 +192,7 @@ class ResolveInfoFieldsAndArguments
         throw new \RuntimeException('Failed to resolve unknown ValueNode type');
     }
 
-    /**
-     * @param ObjectValueNode $objectValueNode
-     * @return array
-     */
-    private function getInputObjectValue(ObjectValueNode $objectValueNode)
+    private function getInputObjectValue(ObjectValueNode $objectValueNode): array
     {
         $value = [];
         foreach ($objectValueNode->fields->getIterator() as $item) {
@@ -207,11 +203,7 @@ class ResolveInfoFieldsAndArguments
         return $value;
     }
 
-    /**
-     * @param ListValueNode $listValueNode
-     * @return array
-     */
-    private function getInputListObjectValue(ListValueNode $listValueNode)
+    private function getInputListObjectValue(ListValueNode $listValueNode): array
     {
         $value = [];
         foreach ($listValueNode->values as $valueNode) {

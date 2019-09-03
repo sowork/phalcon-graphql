@@ -1,11 +1,11 @@
 <?php
 
-namespace Sowork\GraphQL\Support;
+declare(strict_types=1);
 
+namespace Sowork\GraphQL\Support;
 
 use GraphQL\Type\Definition\FieldDefinition;
 use GraphQL\Type\Definition\ObjectType;
-use Sowork\GraphQL\Fluent\Fluent;
 use GraphQL\Type\Definition\Type as GraphqlType;
 use Sowork\GraphQL\Support\Contracts\TypeConvertible;
 
@@ -13,28 +13,26 @@ use Sowork\GraphQL\Support\Contracts\TypeConvertible;
  * Class Type
  * @package Sowork\GraphQL
  */
-class Type extends Fluent implements TypeConvertible
+abstract class Type implements TypeConvertible
 {
-    protected static $instances = [];
+    protected $attributes = [];
 
-    protected $unionType = false;
-
-    public function attributes()
+    public function attributes(): array
     {
         return [];
     }
 
-    public function fields()
+    public function fields(): array
     {
         return [];
     }
 
-    public function interfaces()
+    public function interfaces(): array
     {
         return [];
     }
 
-    protected function getFieldResolver($name, $field)
+    protected function getFieldResolver($name, $field): ?callable
     {
         if (isset($field['resolve'])) {
             return $field['resolve'];
@@ -53,7 +51,7 @@ class Type extends Fluent implements TypeConvertible
         return null;
     }
 
-    public function getFields()
+    public function getFields(): array
     {
         $fields = $this->fields();
         $allFields = [];
@@ -81,7 +79,7 @@ class Type extends Fluent implements TypeConvertible
      *
      * @return array
      */
-    public function getAttributes()
+    public function getAttributes(): array
     {
         $attributes = $this->attributes();
         $interfaces = $this->interfaces();
@@ -104,7 +102,7 @@ class Type extends Fluent implements TypeConvertible
      *
      * @return array
      */
-    public function toArray()
+    public function toArray(): array
     {
         return $this->getAttributes();
     }
@@ -126,15 +124,8 @@ class Type extends Fluent implements TypeConvertible
         return isset($attributes[$key]) ? $attributes[$key] : null;
     }
 
-    /**
-     * Dynamically check if an attribute is set.
-     *
-     * @param  string $key
-     * @return bool
-     */
-    public function __isset($key)
+    public function __set(string $key, $value): void
     {
-        $attributes = $this->getAttributes();
-        return isset($attributes[$key]);
+        $this->attributes[$key] = $value;
     }
 }

@@ -1,24 +1,34 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sowork\GraphQL\Error;
 
-
 use GraphQL\Error\Error;
+use Phalcon\Validation;
+use Phalcon\Validation\Message\Group;
 
 class ValidationError extends Error
 {
 
-    public $validator;
+    /** @var Validation */
+    public $validation;
 
-    public function setValidator($validator)
+    public function __construct(string $message, Validation $validation)
     {
-        $this->validator = $validator;
+        parent::__construct($message);
+        $this->validation = $validation;
 
         return $this;
     }
 
-    public function getValidatorMessages()
+    public function getValidatorMessages(): Group
     {
-        return $this->validator ? $this->validator->messages():[];
+        return $this->validation->getMessages();
+    }
+
+    public function getValidator(): Validation
+    {
+        return $this->validation;
     }
 }

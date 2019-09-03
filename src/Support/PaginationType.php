@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sowork\GraphQL\Support;
 
 use GraphQL\Type\Definition\ObjectType;
@@ -19,7 +21,7 @@ class PaginationType extends ObjectType {
         parent::__construct($config);
     }
 
-    protected function getPaginationFields($typeName)
+    protected function getPaginationFields($typeName): array
     {
         return [
             'data' => [

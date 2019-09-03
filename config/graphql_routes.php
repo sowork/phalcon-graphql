@@ -1,26 +1,27 @@
 <?php
 
+declare(strict_types=1);
+
 $di = \Phalcon\Di::getDefault();
-$defaultConfig = require_once __DIR__ . '/graphql.php';
 if (graphql_config('graphql.isInjectRoutes')) {
-    $customGrqphqlRouteSegment = graphql_config('graphql.routes');
-    if (is_array($customGrqphqlRouteSegment)) {
-        $queryGrqphqlRouteSegment = $customGrqphqlRouteSegment['query'];
-        $mutationGrqphqlRouteSegment = $customGrqphqlRouteSegment['mutation'];
+    $customGraphQLRouteSegment = graphql_config('graphql.routes');
+    if (is_array($customGraphQLRouteSegment)) {
+        $queryGraphQLRouteSegment = $customGraphQLRouteSegment['query'];
+        $mutationGraphQLRouteSegment = $customGraphQLRouteSegment['mutation'];
     } else {
-        $queryGrqphqlRouteSegment = $customGrqphqlRouteSegment;
-        $mutationGrqphqlRouteSegment = $customGrqphqlRouteSegment;
+        $queryGraphQLRouteSegment = $customGraphQLRouteSegment;
+        $mutationGraphQLRouteSegment = $customGraphQLRouteSegment;
     }
 
-    $controllers = graphql_config('graphql.controllers') ?? 'Sowork\GraphQL\Http\Controllers\Graphql::query';
-    $queryGrqphqlController = '';
-    $mutationGrqphqlController = '';
+    $controllers = graphql_config('graphql.controllers') ?? 'Sowork\GraphQL\Http\Controllers\GraphQLController::query';
+    $queryGraphQLController = '';
+    $mutationGraphQLController = '';
     if (is_array($controllers)) {
-        $queryGrqphqlController = $controllers['query'];
-        $mutationGrqphqlController = $controllers['mutation'];
+        $queryGraphQLController = $controllers['query'];
+        $mutationGraphQLController = $controllers['mutation'];
     } else {
-        $queryGrqphqlController = $controllers;
-        $mutationGrqphqlController = $controllers;
+        $queryGraphQLController = $controllers;
+        $mutationGraphQLController = $controllers;
     }
 
     /* @var $routerGroup \Phalcon\Mvc\Router\Group */
@@ -30,31 +31,31 @@ if (graphql_config('graphql.isInjectRoutes')) {
     $router = $di->getRouter();
 
     $schemaParameterPattern = '/\{\s*graphql\_schema\s*\?\s*\}/';
-    if ($queryGrqphqlRouteSegment) {
-        if(preg_match($schemaParameterPattern, $queryGrqphqlRouteSegment)) {
-            $routerGroup->add(preg_replace($schemaParameterPattern, '', $queryGrqphqlRouteSegment), $queryGrqphqlController);
+    if ($queryGraphQLRouteSegment) {
+        if(preg_match($schemaParameterPattern, $queryGraphQLRouteSegment)) {
+            $routerGroup->add(preg_replace($schemaParameterPattern, '', $queryGraphQLRouteSegment), $queryGraphQLController);
         }
 
         foreach(graphql_config('graphql.schemas') as $name => $schema)
         {
             $route = $routerGroup->add(
-                Sowork\GraphQL\GraphQL::routeNameTransformer($name, $schemaParameterPattern, $queryGrqphqlRouteSegment),
-                $queryGrqphqlController
+                Sowork\GraphQL\GraphQL::routeNameTransformer($name, $schemaParameterPattern, $queryGraphQLRouteSegment),
+                $queryGraphQLController
             );
         }
     }
 
-    if ($mutationGrqphqlRouteSegment) {
-        if(preg_match($schemaParameterPattern, $queryGrqphqlRouteSegment)) {
-            $routerGroup->add(preg_replace($schemaParameterPattern, '', $mutationGrqphqlRouteSegment),
-                $mutationGrqphqlController);
+    if ($mutationGraphQLRouteSegment) {
+        if(preg_match($schemaParameterPattern, $queryGraphQLRouteSegment)) {
+            $routerGroup->add(preg_replace($schemaParameterPattern, '', $mutationGraphQLRouteSegment),
+                $mutationGraphQLController);
         }
 
         foreach(graphql_config('graphql.schemas') as $name => $schema)
         {
             $route = $routerGroup->add(
-                Sowork\GraphQL\GraphQL::routeNameTransformer($name, $schemaParameterPattern, $mutationGrqphqlRouteSegment),
-                $mutationGrqphqlController
+                Sowork\GraphQL\GraphQL::routeNameTransformer($name, $schemaParameterPattern, $mutationGraphQLRouteSegment),
+                $mutationGraphQLController
             );
         }
     }

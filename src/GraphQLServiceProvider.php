@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sowork\GraphQL;
 
 use Phalcon\Di\ServiceProviderInterface;
-use Phalcon\Mvc\Model\Manager;
+use Phalcon\Validation;
+use Phalcon\DiInterface;
 
 /**
  * graphql服务提供者
@@ -15,16 +18,17 @@ class GraphQLServiceProvider implements ServiceProviderInterface
     /**
      * @param \Phalcon\DiInterface $di
      */
-    public function register(\Phalcon\DiInterface $di)
+    public function register(DiInterface $di): void
     {
         $di->setShared('graphql', new GraphQL());
+        $di->setShared('validation', new Validation());
         $this->mergeConfig();
         $this->bootTypes($di);
         $this->bootSchemas($di);
         $this->bootRouter();
     }
 
-    public function bootTypes($di)
+    public function bootTypes(DiInterface $di): void
     {
         $configTypes = graphql_config('graphql.types');
         foreach($configTypes as $name => $type)
@@ -40,7 +44,7 @@ class GraphQLServiceProvider implements ServiceProviderInterface
         }
     }
 
-    public function bootSchemas($di)
+    public function bootSchemas(DiInterface $di): void
     {
         $configSchemas = graphql_config('graphql.schemas')->toArray();
         foreach ($configSchemas as $name => $schema) {
@@ -48,12 +52,12 @@ class GraphQLServiceProvider implements ServiceProviderInterface
         }
     }
 
-    public function bootRouter()
+    public function bootRouter(): void
     {
         require_once __DIR__ . '/../config/graphql_routes.php';
     }
 
-    public function mergeConfig()
+    public function mergeConfig(): void
     {
         $configPath = __DIR__ . '/../config/graphql.php';
         $graphqlConfig = graphql_config('graphql');
