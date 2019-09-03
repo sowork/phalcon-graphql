@@ -2,6 +2,7 @@
   "name": "sowork/phalcon-graphql",
   "description": "Phalcon GraphQL Library",
   "keywords": ["phalcon", "graphql"],
+  "license": "mit",
   "require": {
     "php": ">= 7.1",
     "ext-json": "*",
